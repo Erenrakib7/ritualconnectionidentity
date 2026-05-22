@@ -1,0 +1,30 @@
+import { createConfig, http } from 'wagmi'
+import { injected } from '@wagmi/connectors'
+import { defineChain } from 'viem'
+
+export const ritualChain = defineChain({
+  id: 1979,
+  name: 'Ritual',
+  nativeCurrency: {
+    name: 'RITUAL',
+    symbol: 'RITUAL',
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: { http: ['https://rpc.ritualfoundation.org'] },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Ritual Explorer',
+      url: 'https://explorer.ritualfoundation.org',
+    },
+  },
+})
+
+export const wagmiConfig = createConfig({
+  chains: [ritualChain],
+  connectors: [injected()],
+  transports: {
+    [ritualChain.id]: http('https://rpc.ritualfoundation.org'),
+  },
+})

@@ -1,0 +1,125 @@
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+:root {
+  --green-bright: #00ff88;
+  --green-mid: #00cc66;
+  --green-dark: #00441a;
+  --green-glow: #00ff8855;
+  --green-dim: #004d22;
+  --black: #020a04;
+  --surface: #050f07;
+  --text-main: #00ff88;
+  --text-dim: #00994d;
+  --white: #e8fff2;
+  --font-display: 'Orbitron', monospace;
+  --font-body: 'Share Tech Mono', monospace;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--black);
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--black); }
+::-webkit-scrollbar-thumb { background: var(--green-mid); border-radius: 2px; }
+
+/* Glow utility */
+.glow {
+  text-shadow:
+    0 0 10px var(--green-bright),
+    0 0 30px var(--green-mid),
+    0 0 60px var(--green-dark);
+}
+
+.box-glow {
+  box-shadow:
+    0 0 10px var(--green-glow),
+    0 0 30px var(--green-dim),
+    inset 0 0 10px var(--green-dim);
+}
+
+/* Button base */
+.btn-ritual {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  border: 2px solid var(--green-bright);
+  background: transparent;
+  color: var(--green-bright);
+  padding: 14px 48px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+}
+
+.btn-ritual::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--green-bright);
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  z-index: -1;
+}
+
+.btn-ritual:hover::before {
+  transform: translateX(0);
+}
+
+.btn-ritual:hover {
+  color: var(--black);
+  box-shadow: 0 0 30px var(--green-glow), 0 0 60px var(--green-dim);
+}
+
+.btn-ritual:active {
+  transform: scale(0.97);
+}
+
+/* Scanline overlay */
+.scanlines {
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 136, 0.015) 2px,
+    rgba(0, 255, 136, 0.015) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Corner decoration */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: var(--green-bright);
+  border-style: solid;
+  opacity: 0.6;
+}
+.corner-tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
+.corner-tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; }
+.corner-bl { bottom: 12px; left: 12px; border-width: 0 0 2px 2px; }
+.corner-br { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; }
