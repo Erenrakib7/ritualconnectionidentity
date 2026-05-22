@@ -1,11 +1,13 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import html2canvas from 'html2canvas'
 
 export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) {
   const [imgError, setImgError] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [avatarDataUrl, setAvatarDataUrl] = useState(null)
   const cardRef = useRef(null)
+
   const avatarUrl = `https://unavatar.io/twitter/${twitterHandle}`
   const shortAddr = walletAddress
     ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
@@ -14,6 +16,27 @@ export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) 
   const idNum = walletAddress
     ? `RCI-${walletAddress.slice(2, 6).toUpperCase()}-${walletAddress.slice(-4).toUpperCase()}`
     : 'RCI-XXXX-XXXX'
+
+  // Pre-load avatar as base64 DataURL to fix CORS issue in html2canvas
+  useEffect(() => {
+    if (!twitterHandle) return
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth || 200
+      canvas.height = img.naturalHeight || 200
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0)
+      try {
+        setAvatarDataUrl(canvas.toDataURL('image/png'))
+      } catch {
+        setImgError(true)
+      }
+    }
+    img.onerror = () => setImgError(true)
+    img.src = avatarUrl
+  }, [twitterHandle])
 
   // Tilt on mouse move
   const handleMouseMove = (e) => {
@@ -46,7 +69,7 @@ export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) 
         backgroundColor: '#020a04',
         scale: 3,
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         logging: false,
       })
 
@@ -102,7 +125,6 @@ export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) 
         <div
           ref={cardRef}
           style={{
-            /* CR-80 card ratio  85.6 × 54 mm  →  ~430 × 272 px */
             width: 'min(430px, 92vw)',
             aspectRatio: '85.6 / 54',
             position: 'relative',
@@ -186,8 +208,12 @@ export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) 
                 aspectRatio: '1',
                 alignSelf: 'flex-start',
               }}>
-                {!imgError ? (
+                {avatarDataUrl ? (
+                  <img src={avatarDataUrl} alt={twitterHandle}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ) : !imgError ? (
                   <img src={avatarUrl} alt={twitterHandle} onError={() => setImgError(true)}
+                    crossOrigin="anonymous"
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 ) : (
                   <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-display)', fontSize: '1.6rem', color: 'var(--green-bright)' }}>
@@ -222,9 +248,7 @@ export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) 
 
             {/* Magnetic stripe + barcode */}
             <div style={{ marginBottom: '6px' }}>
-              {/* Mag stripe */}
               <div style={{ height: '10px', background: 'linear-gradient(90deg, rgba(0,255,136,0.08) 0%, rgba(0,255,136,0.18) 40%, rgba(0,255,136,0.08) 100%)', marginBottom: '4px', borderRadius: '1px' }} />
-              {/* Barcode */}
               <div style={{ display: 'flex', gap: '1.5px', alignItems: 'flex-end', height: '16px' }}>
                 {Array.from({ length: 60 }).map((_, i) => (
                   <div key={i} style={{
@@ -248,7 +272,6 @@ export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) 
         transition={{ delay: 0.9, duration: 0.5 }}
         style={{ marginTop: '22px', zIndex: 10, display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}
       >
-        {/* Download button */}
         <button
           onClick={handleDownload}
           disabled={downloading}
