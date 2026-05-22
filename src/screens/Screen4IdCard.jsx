@@ -5,10 +5,10 @@ import html2canvas from 'html2canvas'
 // Try multiple avatar sources with CORS proxy fallback
 async function fetchAvatarAsDataUrl(twitterHandle) {
   const sources = [
+    // unavatar x endpoint (correct, twitter endpoint is deprecated)
+    `https://unavatar.io/x/${twitterHandle}`,
     // unavatar via allorigins CORS proxy
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://unavatar.io/twitter/${twitterHandle}`)}`,
-    // Direct unavatar (sometimes works)
-    `https://unavatar.io/twitter/${twitterHandle}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://unavatar.io/x/${twitterHandle}`)}`,
     // ui-avatars fallback
     `https://ui-avatars.com/api/?name=${encodeURIComponent(twitterHandle)}&size=200&background=021008&color=00ff88&bold=true&format=png`,
   ]
