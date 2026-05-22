@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
+import html2canvas from 'html2canvas'
 
 export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) {
   const [imgError, setImgError] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const cardRef = useRef(null)
   const avatarUrl = `https://unavatar.io/twitter/${twitterHandle}`
   const shortAddr = walletAddress
@@ -29,6 +31,34 @@ export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) 
     if (!cardRef.current) return
     cardRef.current.style.transform = 'perspective(900px) rotateY(0deg) rotateX(0deg)'
     cardRef.current.style.transition = 'transform 0.5s ease'
+  }
+
+  const handleDownload = async () => {
+    if (!cardRef.current || downloading) return
+    setDownloading(true)
+    try {
+      // Flatten tilt before capture
+      cardRef.current.style.transform = 'perspective(900px) rotateY(0deg) rotateX(0deg)'
+      cardRef.current.style.transition = 'none'
+      await new Promise(r => setTimeout(r, 300))
+
+      const canvas = await html2canvas(cardRef.current, {
+        backgroundColor: '#020a04',
+        scale: 3,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+      })
+
+      const link = document.createElement('a')
+      link.download = `ritual-identity-${twitterHandle || 'card'}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } catch (err) {
+      console.error('Download failed:', err)
+    } finally {
+      setDownloading(false)
+    }
   }
 
   return (
@@ -216,12 +246,47 @@ export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.9, duration: 0.5 }}
-        style={{ marginTop: '22px', zIndex: 10 }}
+        style={{ marginTop: '22px', zIndex: 10, display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}
       >
+        {/* Download button */}
+        <button
+          onClick={handleDownload}
+          disabled={downloading}
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.9rem',
+            padding: '13px 28px',
+            background: 'transparent',
+            border: '1px solid rgba(0,255,136,0.45)',
+            color: downloading ? 'rgba(0,255,136,0.4)' : 'var(--green-bright)',
+            letterSpacing: '0.25em',
+            cursor: downloading ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.2s',
+            borderRadius: '2px',
+            boxShadow: downloading ? 'none' : '0 0 12px rgba(0,255,136,0.08)',
+          }}
+          onMouseEnter={e => { if (!downloading) e.currentTarget.style.background = 'rgba(0,255,136,0.08)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+        >
+          {downloading ? (
+            <>
+              <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite', fontSize: '0.85rem' }}>◌</span>
+              DOWNLOADING...
+            </>
+          ) : (
+            <>↓ DOWNLOAD CARD</>
+          )}
+        </button>
+
         <button className="btn-ritual" onClick={onNext} style={{ fontSize: '0.95rem', padding: '13px 52px' }}>
           MINT IDENTITY →
         </button>
       </motion.div>
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </motion.div>
   )
 }
