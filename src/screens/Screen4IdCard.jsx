@@ -2,13 +2,58 @@ import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import html2canvas from 'html2canvas'
 
+// Try multiple avatar sources with CORS proxy fallback
+async function fetchAvatarAsDataUrl(twitterHandle) {
+  const sources = [
+    // unavatar via allorigins CORS proxy
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://unavatar.io/twitter/${twitterHandle}`)}`,
+    // Direct unavatar (sometimes works)
+    `https://unavatar.io/twitter/${twitterHandle}`,
+    // ui-avatars fallback
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(twitterHandle)}&size=200&background=021008&color=00ff88&bold=true&format=png`,
+  ]
+
+  for (const src of sources) {
+    try {
+      const dataUrl = await loadImageAsDataUrl(src)
+      if (dataUrl) return dataUrl
+    } catch {
+      // try next source
+    }
+  }
+  return null
+}
+
+function loadImageAsDataUrl(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    const timeout = setTimeout(() => reject(new Error('timeout')), 8000)
+    img.onload = () => {
+      clearTimeout(timeout)
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.naturalWidth || 200
+        canvas.height = img.naturalHeight || 200
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0)
+        resolve(canvas.toDataURL('image/png'))
+      } catch {
+        reject(new Error('canvas tainted'))
+      }
+    }
+    img.onerror = () => { clearTimeout(timeout); reject(new Error('load error')) }
+    img.src = src
+  })
+}
+
 export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) {
   const [imgError, setImgError] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [avatarDataUrl, setAvatarDataUrl] = useState(null)
+  const [avatarLoading, setAvatarLoading] = useState(true)
   const cardRef = useRef(null)
 
-  const avatarUrl = `https://unavatar.io/twitter/${twitterHandle}`
   const shortAddr = walletAddress
     ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
     : 'NOT CONNECTED'
@@ -17,25 +62,29 @@ export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) 
     ? `RCI-${walletAddress.slice(2, 6).toUpperCase()}-${walletAddress.slice(-4).toUpperCase()}`
     : 'RCI-XXXX-XXXX'
 
-  // Pre-load avatar as base64 DataURL to fix CORS issue in html2canvas
+  // Pre-load avatar using multiple sources + proxy fallback
   useEffect(() => {
-    if (!twitterHandle) return
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = img.naturalWidth || 200
-      canvas.height = img.naturalHeight || 200
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(img, 0, 0)
-      try {
-        setAvatarDataUrl(canvas.toDataURL('image/png'))
-      } catch {
+    if (!twitterHandle) {
+      setAvatarLoading(false)
+      setImgError(true)
+      return
+    }
+    setAvatarLoading(true)
+    setImgError(false)
+    setAvatarDataUrl(null)
+
+    fetchAvatarAsDataUrl(twitterHandle).then(dataUrl => {
+      if (dataUrl) {
+        setAvatarDataUrl(dataUrl)
+        setImgError(false)
+      } else {
         setImgError(true)
       }
-    }
-    img.onerror = () => setImgError(true)
-    img.src = avatarUrl
+      setAvatarLoading(false)
+    }).catch(() => {
+      setImgError(true)
+      setAvatarLoading(false)
+    })
   }, [twitterHandle])
 
   // Tilt on mouse move
@@ -71,6 +120,15 @@ export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) 
         useCORS: true,
         allowTaint: false,
         logging: false,
+        // Force images to use the already-converted data URLs
+        onclone: (clonedDoc) => {
+          const images = clonedDoc.querySelectorAll('img')
+          images.forEach(img => {
+            if (avatarDataUrl && img.alt === twitterHandle) {
+              img.src = avatarDataUrl
+            }
+          })
+        },
       })
 
       const link = document.createElement('a')
@@ -207,16 +265,31 @@ export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) 
                 boxShadow: '0 0 10px rgba(0,255,136,0.2)',
                 aspectRatio: '1',
                 alignSelf: 'flex-start',
+                position: 'relative',
               }}>
-                {avatarDataUrl ? (
-                  <img src={avatarDataUrl} alt={twitterHandle}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                ) : !imgError ? (
-                  <img src={avatarUrl} alt={twitterHandle} onError={() => setImgError(true)}
-                    crossOrigin="anonymous"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                {avatarLoading ? (
+                  /* Loading spinner */
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '20px', height: '20px', border: '2px solid rgba(0,255,136,0.2)', borderTop: '2px solid #00ff88', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                  </div>
+                ) : avatarDataUrl ? (
+                  <img
+                    src={avatarDataUrl}
+                    alt={twitterHandle}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
                 ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-display)', fontSize: '1.6rem', color: 'var(--green-bright)' }}>
+                  /* Fallback: stylized letter avatar */
+                  <div style={{
+                    width: '100%', height: '100%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'linear-gradient(135deg, rgba(0,255,136,0.12), rgba(0,200,80,0.08))',
+                    fontFamily: 'var(--font-display)',
+                    fontSize: '1.6rem',
+                    fontWeight: 900,
+                    color: 'var(--green-bright)',
+                    textShadow: '0 0 12px rgba(0,255,136,0.8)',
+                  }}>
                     {twitterHandle?.[0]?.toUpperCase() ?? '?'}
                   </div>
                 )}
@@ -274,30 +347,35 @@ export default function Screen4IdCard({ twitterHandle, walletAddress, onNext }) 
       >
         <button
           onClick={handleDownload}
-          disabled={downloading}
+          disabled={downloading || avatarLoading}
           style={{
             fontFamily: 'var(--font-body)',
             fontSize: '0.9rem',
             padding: '13px 28px',
             background: 'transparent',
             border: '1px solid rgba(0,255,136,0.45)',
-            color: downloading ? 'rgba(0,255,136,0.4)' : 'var(--green-bright)',
+            color: (downloading || avatarLoading) ? 'rgba(0,255,136,0.4)' : 'var(--green-bright)',
             letterSpacing: '0.25em',
-            cursor: downloading ? 'not-allowed' : 'pointer',
+            cursor: (downloading || avatarLoading) ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
             transition: 'all 0.2s',
             borderRadius: '2px',
-            boxShadow: downloading ? 'none' : '0 0 12px rgba(0,255,136,0.08)',
+            boxShadow: (downloading || avatarLoading) ? 'none' : '0 0 12px rgba(0,255,136,0.08)',
           }}
-          onMouseEnter={e => { if (!downloading) e.currentTarget.style.background = 'rgba(0,255,136,0.08)' }}
+          onMouseEnter={e => { if (!downloading && !avatarLoading) e.currentTarget.style.background = 'rgba(0,255,136,0.08)' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
         >
           {downloading ? (
             <>
               <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite', fontSize: '0.85rem' }}>◌</span>
               DOWNLOADING...
+            </>
+          ) : avatarLoading ? (
+            <>
+              <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite', fontSize: '0.85rem' }}>◌</span>
+              LOADING AVATAR...
             </>
           ) : (
             <>↓ DOWNLOAD CARD</>
